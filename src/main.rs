@@ -1,170 +1,96 @@
-use svg::node::element::{Path, Rectangle};
-use svg::Document;
+use plotters::prelude::*;
 use rand::Rng;
 
-// 定义二维向量
-#[derive(Clone, Copy, Debug)]
-struct Vec2 {
-    x: f64,
-    y: f64,
-}
+const NUM_LINES: i32 = 12;
+const DIMENSION: usize = 5; // Change to 4 for Ammann-Beenker tiling
 
-impl Vec2 {
-    fn new(x: f64, y: f64) -> Self {
-        Self { x, y }
-    }
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Generate random shifts for each grid direction
+    let mut rng = rand::rng();
+    let shifts: Vec<f64> = (0..DIMENSION).map(|_| rng.random::<f64>()).collect();
+    println!("Shifts: {:?}", shifts);
 
-    // 向量加法
-    fn add(self, other: Self) -> Self {
-        Self {
-            x: self.x + other.x,
-            y: self.y + other.y,
-        }
-    }
-}
+    // Compute angles and unit vectors for grid directions
+    let theta: Vec<f64> = if DIMENSION % 2 == 0 {
+        (0..DIMENSION)
+            .map(|i| i as f64 * std::f64::consts::PI / DIMENSION as f64)
+            .collect()
+    } else {
+        (0..DIMENSION)
+            .map(|i| i as f64 * 2.0 * std::f64::consts::PI / DIMENSION as f64)
+            .collect()
+    };
 
-// 定义菱形瓦片
-#[derive(Debug)]
-struct Rhombus {
-    vertices: [Vec2; 4],
-    is_thick: bool,
-}
+    let uv: Vec<(f64, f64)> = theta.iter().map(|&t| (t.cos(), t.sin())).collect();
 
-fn main() {
-    let width = 800.0;
-    let height = 800.0;
-    let num_lines = 20; // 每个方向的线条数量
+    // Set up the drawing area
+    let root = SVGBackend::new("debruijn.svg", (800, 600)).into_drawing_area();
+    root.fill(&WHITE)?;
+    let (x_min, x_max, y_min, y_max) = (-16.0, 16.0, -12.0, 12.0);
+    let mut chart = ChartBuilder::on(&root)
+        .build_cartesian_2d(x_min..x_max, y_min..y_max)?;
 
-    let rhombuses = generate_penrose_tiling(width, height, num_lines);
-    draw_svg(width, height, &rhombuses);
-}
+    // Define colors
+    let fat_color = RGBColor(50, 50, 50);    // FAT_COLOR (red)
+    let thin_color = RGBColor(255, 127, 0);    // THIN_COLOR (orange)
+    let edge_color = RGBColor(55, 126, 184);   // EDGE_COLOR (blue)
 
-// 生成彭罗斯镶嵌
-fn generate_penrose_tiling(width: f64, height: f64, num_lines: i32) -> Vec<Rhombus> {
-    let mut rng = rand::thread_rng();
-    let mut rhombuses = Vec::new();
+    // Iterate over all unique pairs of grids (r, s)
+    for r in 0..DIMENSION {
+        for s in (r + 1)..DIMENSION {
+            for kr in -NUM_LINES..=NUM_LINES {
+                for ks in -NUM_LINES..=NUM_LINES {
+                    // Solve for intersection point of grid lines (r, kr) and (s, ks)
+                    let det = uv[r].0 * uv[s].1 - uv[r].1 * uv[s].0;
+                    if det.abs() < 1e-12 {
+                        continue; // Skip if lines are parallel
+                    }
+                    let b0 = kr as f64 - shifts[r];
+                    let b1 = ks as f64 - shifts[s];
+                    let x = (b0 * uv[s].1 - b1 * uv[r].1) / det;
+                    let y = (b1 * uv[r].0 - b0 * uv[s].0) / det;
 
-    // 五个方向的单位向量
-    let mut directions = [Vec2::new(0.0, 0.0); 5];
-    for i in 0..5 {
-        let angle = (i as f64) * 2.0 * std::f64::consts::PI / 5.0;
-        directions[i] = Vec2::new(angle.cos(), angle.sin());
-    }
+                    // Compute index vector for the intersection point
+                    let mut index: Vec<i32> = uv
+                        .iter()
+                        .enumerate()
+                        .map(|(i, &(ux, uy))| (ux * x + uy * y + shifts[i]).ceil() as i32)
+                        .collect();
 
-    // 随机偏移量
-    let mut offsets = [0.0; 5];
-    for i in 0..5 {
-        offsets[i] = rng.gen::<f64>() * 10.0;
-    }
-
-    // 遍历所有线对的交点
-    for i in 0..5 {
-        for j in (i + 1)..5 {
-            let dir1 = directions[i];
-            let dir2 = directions[j];
-
-            for k in -num_lines..num_lines {
-                for l in -num_lines..num_lines {
-                    // 计算两条线的交点
-                    let p1 = k as f64 + offsets[i];
-                    let p2 = l as f64 + offsets[j];
-
-                    let det = dir1.x * dir2.y - dir1.y * dir2.x;
-                    if det.abs() < 1e-6 { continue; } // 平行线
-
-                    let x = (p1 * dir2.y - p2 * dir1.y) / det;
-                    let y = (p2 * dir1.x - p1 * dir2.x) / det;
-                    let intersection = Vec2::new(x, y);
-
-                    // 确定菱形类型和顶点
-                    let mut k_indices = [0; 5];
-                    for m in 0..5 {
-                        k_indices[m] = (intersection.x * directions[m].x + intersection.y * directions[m].y - offsets[m]).floor() as i32;
+                    // Generate vertices for the rhombus
+                    let mut vertices = Vec::new();
+                    for (dr, ds) in &[(0, 0), (1, 0), (1, 1), (0, 1)] {
+                        index[r] = kr + dr;
+                        index[s] = ks + ds;
+                        let (mut px, mut py) = (0.0, 0.0);
+                        for (i, &(ux, uy)) in uv.iter().enumerate() {
+                            px += index[i] as f64 * ux;
+                            py += index[i] as f64 * uy;
+                        }
+                        vertices.push((px, py));
                     }
 
-                    let mut sum = 0;
-                    for &k_val in k_indices.iter() {
-                        sum += k_val;
-                    }
-                    if sum != 0 { continue; }
+                    // Determine rhombus type and color
+                    let is_adjacent = s - r == 1 || s - r == DIMENSION - 1;
+                    let fill_color = if is_adjacent { fat_color } else { thin_color };
 
-                    let v1 = get_vertex(&k_indices, &directions);
+                    // Draw filled polygon
+                    chart.draw_series(std::iter::once(Polygon::new(
+                        vertices.clone(),
+                        ShapeStyle::from(&fill_color).filled(),
+                    )))?;
 
-                    let mut k2 = k_indices; k2[i] += 1;
-                    let v2 = get_vertex(&k2, &directions);
-
-                    let mut k3 = k_indices; k3[j] += 1;
-                    let v3 = get_vertex(&k3, &directions);
-
-                    let mut k4 = k_indices; k4[i] += 1; k4[j] += 1;
-                    let v4 = get_vertex(&k4, &directions);
-
-                    // 胖瘦菱形的角度判断
-                    let angle = ((v2.x-v1.x)*(v3.x-v1.x) + (v2.y-v1.y)*(v3.y-v1.y)).acos() * 180.0 / std::f64::consts::PI;
-                    let is_thick = angle.abs() > 40.0 && angle.abs() < 80.0;
-
-                    rhombuses.push(Rhombus {
-                        vertices: [v1, v2, v4, v3],
-                        is_thick,
-                    });
+                    // Draw border (closed path)
+                    let mut border = vertices.clone();
+                    border.push(vertices[0]);
+                    chart.draw_series(std::iter::once(PathElement::new(
+                        border,
+                        ShapeStyle::from(&edge_color).stroke_width(1),
+                    )))?;
                 }
             }
         }
     }
-    rhombuses
-}
 
-
-fn get_vertex(k: &[i32; 5], directions: &[Vec2; 5]) -> Vec2 {
-    let mut vertex = Vec2::new(0.0, 0.0);
-    for m in 0..5 {
-        vertex = vertex.add(Vec2::new(
-            directions[m].x * k[m] as f64,
-            directions[m].y * k[m] as f64,
-        ));
-    }
-    vertex
-}
-
-
-// 绘制 SVG 图像
-fn draw_svg(width: f64, height: f64, rhombuses: &[Rhombus]) {
-    let mut document = Document::new()
-        .set("width", width)
-        .set("height", height)
-        .add(Rectangle::new()
-            .set("width", "100%")
-            .set("height", "100%")
-            .set("fill", "#f0f0f0"));
-
-    let scale = 20.0; // 缩放因子
-    let (tx, ty) = (width / 2.0, height / 2.0); // 平移
-
-    for rhombus in rhombuses {
-        let mut data = svg::node::element::path::Data::new()
-            .move_to((rhombus.vertices[0].x * scale + tx, rhombus.vertices[0].y * scale + ty));
-
-        for i in 1..4 {
-            data = data.line_to((rhombus.vertices[i].x * scale + tx, rhombus.vertices[i].y * scale + ty));
-        }
-        data = data.close();
-
-        // 根据菱形类型设置不同颜色
-        let color = if rhombus.is_thick {
-            "lightblue"
-        } else {
-            "lightcoral"
-        };
-
-        let path = Path::new()
-            .set("fill", color)
-            .set("stroke", "black")
-            .set("stroke-width", 0.5)
-            .set("d", data);
-
-        document = document.add(path);
-    }
-
-    svg::save("penrose_tiling.svg", &document).unwrap();
-    println!("Generated penrose_tiling.svg");
+    Ok(())
 }
