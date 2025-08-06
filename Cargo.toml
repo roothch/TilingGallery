@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 plotters = "0.3.5"
 rand = "0.9"
+svg = "0.13.1"
