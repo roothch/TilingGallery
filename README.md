@@ -59,7 +59,7 @@ Run the CLI with one of the available subcommands:
 | `--output-filename` | Output SVG file name               | `output.svg` |
 
 **example**
-![penrose tiling](examples/penrose.svg)
+![penrose tiling](examples/penrose.svg)  
 
 If you set dimension to 4, you can get Ammann Beenker Tiling.
 ![ammann beenker tiling](examples/ammann-beenker.svg)
