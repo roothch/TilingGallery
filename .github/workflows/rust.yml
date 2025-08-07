@@ -1,0 +1,43 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'  # 当推送版本标签时触发
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+      - run: cargo build --release
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: tiling-gallery-${{ matrix.os }}
+          path: target/release/tiling-gallery${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+  
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref }}
+          files: |
+            artifacts/tiling-gallery-ubuntu-latest
+            artifacts/tiling-gallery-macos-latest
+            artifacts/tiling-gallery-windows-latest.exe
