@@ -3,9 +3,10 @@ name: Release Build
 on:
   push:
     tags:
-      - 'v*'  # 当推送版本标签时触发
+      - 'v*'  # 当推送以 v 开头的标签（如 v1.0.0）时触发
+
 permissions:
-  contents: write
+  contents: write  # 允许发布 Release
 
 jobs:
   build:
@@ -14,32 +15,48 @@ jobs:
       matrix:
         os: [macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           profile: minimal
           override: true
-      - run: cargo build --release
+
+      - name: Build Release
+        run: cargo build --release
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: tiling-gallery-${{ matrix.os }}
           path: target/release/tiling-gallery${{ matrix.os == 'windows-latest' && '.exe' || '' }}
-  
+
   create-release:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download Artifacts
+      - name: Download macOS Artifact
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
-      - name: Create Release
+          name: tiling-gallery-macos-latest
+          path: artifacts/macos
+
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tiling-gallery-windows-latest
+          path: artifacts/windows
+
+      - name: List downloaded files (for debugging)
+        run: find artifacts -type f
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref }}
           files: |
-            artifacts/tiling-gallery-ubuntu-latest
-            artifacts/tiling-gallery-macos-latest
-            artifacts/tiling-gallery-windows-latest.exe
+            artifacts/macos/tiling-gallery
+            artifacts/windows/tiling-gallery.exe
