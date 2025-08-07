@@ -1,10 +1,6 @@
 use rand::Rng;
-use svg::node::element::{Group, Path};
 use svg::Document;
-
-// 定义图像尺寸和迭代次数
-const IMAGE_SIZE: (u32, u32) = (800, 400);
-const NUM_ITERATIONS: u32 = 5;
+use svg::node::element::{Group, Path};
 
 // 定义颜色常量
 const FACE_COLORS: [(f64, f64, f64); 5] = [
@@ -77,17 +73,42 @@ fn subdivide(triangles: &[Triangle]) -> Vec<Triangle> {
 
         // 为每个新生成的子三角形随机分配一个颜色
         result.extend_from_slice(&[
-            Triangle { color_index: rng.random_range(0..FACE_COLORS.len()), a, b: e, c: d },
-            Triangle { color_index: rng.random_range(0..FACE_COLORS.len()), a: f, b: e, c: d },
-            Triangle { color_index: rng.random_range(0..FACE_COLORS.len()), a: d, b: g, c: f },
-            Triangle { color_index: rng.random_range(0..FACE_COLORS.len()), a: d, b: g, c: b },
-            Triangle { color_index: rng.random_range(0..FACE_COLORS.len()), a: b, b: f, c },
+            Triangle {
+                color_index: rng.random_range(0..FACE_COLORS.len()),
+                a,
+                b: e,
+                c: d,
+            },
+            Triangle {
+                color_index: rng.random_range(0..FACE_COLORS.len()),
+                a: f,
+                b: e,
+                c: d,
+            },
+            Triangle {
+                color_index: rng.random_range(0..FACE_COLORS.len()),
+                a: d,
+                b: g,
+                c: f,
+            },
+            Triangle {
+                color_index: rng.random_range(0..FACE_COLORS.len()),
+                a: d,
+                b: g,
+                c: b,
+            },
+            Triangle {
+                color_index: rng.random_range(0..FACE_COLORS.len()),
+                a: b,
+                b: f,
+                c,
+            },
         ]);
     }
     result
 }
 
-pub fn generate_tilings() {
+pub fn generate(iterations: u32, width: u32, height: u32, output_filename: &str) {
     // 定义初始的两个大三角形，它们共同构成一个矩形
     let mut triangles = vec![
         Triangle {
@@ -108,7 +129,7 @@ pub fn generate_tilings() {
     let mut tiles = Vec::new();
 
     // 迭代生成更小的三角形
-    for _ in 0..NUM_ITERATIONS {
+    for _ in 0..iterations {
         tiles.push(triangles.clone());
         triangles = subdivide(&triangles);
     }
@@ -117,7 +138,9 @@ pub fn generate_tilings() {
     // 计算基础线宽，相对于数学坐标系
     let base_lw = {
         let first_tri = tiles.last().unwrap()[0];
-        ((first_tri.b.re - first_tri.a.re).powi(2) + (first_tri.b.im - first_tri.a.im).powi(2)).sqrt() / 20.0
+        ((first_tri.b.re - first_tri.a.re).powi(2) + (first_tri.b.im - first_tri.a.im).powi(2))
+            .sqrt()
+            / 20.0
     };
 
     // 创建一个 SVG <g> 元素来处理坐标变换
@@ -127,9 +150,9 @@ pub fn generate_tilings() {
         "transform",
         format!(
             "translate(0, {}) scale({}, -{})",
-            IMAGE_SIZE.1,
-            IMAGE_SIZE.0 as f64 / 2.0,
-            IMAGE_SIZE.1 as f64
+            height,
+            width as f64 / 2.0,
+            height as f64
         ),
     );
 
@@ -150,7 +173,12 @@ pub fn generate_tilings() {
         for triangle in final_triangles {
             let path_data = format!(
                 "M {} {} L {} {} L {} {} Z",
-                triangle.a.re, triangle.a.im, triangle.b.re, triangle.b.im, triangle.c.re, triangle.c.im
+                triangle.a.re,
+                triangle.a.im,
+                triangle.b.re,
+                triangle.b.im,
+                triangle.c.re,
+                triangle.c.im
             );
 
             let fill_color_str = to_rgb_string(FACE_COLORS[triangle.color_index]);
@@ -166,12 +194,17 @@ pub fn generate_tilings() {
     }
 
     // 2. 绘制之前迭代中较粗的轮廓线
-    for (k, triangles_level) in tiles.iter().take(NUM_ITERATIONS as usize).enumerate() {
-        let lw = base_lw * 2.0 * (k as f64 + 1.0) / NUM_ITERATIONS as f64;
+    for (k, triangles_level) in tiles.iter().take(iterations as usize).enumerate() {
+        let lw = base_lw * 2.0 * (k as f64 + 1.0) / iterations as f64;
         for triangle in triangles_level {
             let path_data = format!(
                 "M {} {} L {} {} L {} {} Z",
-                triangle.a.re, triangle.a.im, triangle.b.re, triangle.b.im, triangle.c.re, triangle.c.im
+                triangle.a.re,
+                triangle.a.im,
+                triangle.b.re,
+                triangle.b.im,
+                triangle.c.re,
+                triangle.c.im
             );
 
             let path = Path::new()
@@ -186,9 +219,8 @@ pub fn generate_tilings() {
 
     // 创建SVG文档并保存到文件
     let document = Document::new()
-        .set("viewBox", (0, 0, IMAGE_SIZE.0, IMAGE_SIZE.1))
+        .set("viewBox", (0, 0, width, height))
         .add(group);
 
-    svg::save("pinwheel_random_svg.svg", &document).unwrap();
-    println!("成功生成 'pinwheel_random_svg.svg'");
+    svg::save(output_filename, &document).unwrap();
 }

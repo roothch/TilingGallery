@@ -1,45 +1,58 @@
+use csscolorparser::Color;
 use plotters::prelude::*;
 use rand::Rng;
 
-const NUM_LINES: i32 = 12;
-const DIMENSION: usize = 5; // Change to 4 for Ammann-Beenker tiling
-
-pub fn generate_tilings() -> Result<(), Box<dyn std::error::Error>> {
+fn hex2rgb(hex_color: &str) -> RGBColor {
+    // 解析十六进制颜色
+    let color = hex_color.parse::<Color>().unwrap();
+    let rgba = color.to_rgba8();
+    // 将解析出的 RGB 值用于 plotters 的颜色结构
+    RGBColor(rgba[0], rgba[1], rgba[2])
+}
+pub fn generate(
+    dimension: usize,
+    num_lines: i32,
+    output_width: u32,
+    output_height: u32,
+    fat_color: String,
+    thin_color: String,
+    edge_color: String,
+    output_filename: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Generate random shifts for each grid direction
     let mut rng = rand::rng();
-    let shifts: Vec<f64> = (0..DIMENSION).map(|_| rng.random::<f64>()).collect();
+    let shifts: Vec<f64> = (0..dimension).map(|_| rng.random::<f64>()).collect();
     println!("Shifts: {:?}", shifts);
 
     // Compute angles and unit vectors for grid directions
-    let theta: Vec<f64> = if DIMENSION % 2 == 0 {
-        (0..DIMENSION)
-            .map(|i| i as f64 * std::f64::consts::PI / DIMENSION as f64)
+    let theta: Vec<f64> = if dimension % 2 == 0 {
+        (0..dimension)
+            .map(|i| i as f64 * std::f64::consts::PI / dimension as f64)
             .collect()
     } else {
-        (0..DIMENSION)
-            .map(|i| i as f64 * 2.0 * std::f64::consts::PI / DIMENSION as f64)
+        (0..dimension)
+            .map(|i| i as f64 * 2.0 * std::f64::consts::PI / dimension as f64)
             .collect()
     };
 
     let uv: Vec<(f64, f64)> = theta.iter().map(|&t| (t.cos(), t.sin())).collect();
 
     // Set up the drawing area
-    let root = SVGBackend::new("debruijn.svg", (800, 600)).into_drawing_area();
+    let root = SVGBackend::new(output_filename, (output_width, output_height)).into_drawing_area();
     root.fill(&WHITE)?;
     let (x_min, x_max, y_min, y_max) = (-16.0, 16.0, -12.0, 12.0);
-    let mut chart = ChartBuilder::on(&root)
-        .build_cartesian_2d(x_min..x_max, y_min..y_max)?;
+    let mut chart = ChartBuilder::on(&root).build_cartesian_2d(x_min..x_max, y_min..y_max)?;
 
     // Define colors
-    let fat_color = RGBColor(50, 50, 50);    // FAT_COLOR (red)
-    let thin_color = RGBColor(255, 127, 0);    // THIN_COLOR (orange)
-    let edge_color = RGBColor(55, 126, 184);   // EDGE_COLOR (blue)
+    let fat_color = hex2rgb(&fat_color);
+    let thin_color = hex2rgb(&thin_color);
+    let edge_color = hex2rgb(&edge_color);
 
     // Iterate over all unique pairs of grids (r, s)
-    for r in 0..DIMENSION {
-        for s in (r + 1)..DIMENSION {
-            for kr in -NUM_LINES..=NUM_LINES {
-                for ks in -NUM_LINES..=NUM_LINES {
+    for r in 0..dimension {
+        for s in (r + 1)..dimension {
+            for kr in -num_lines..=num_lines {
+                for ks in -num_lines..=num_lines {
                     // Solve for intersection point of grid lines (r, kr) and (s, ks)
                     let det = uv[r].0 * uv[s].1 - uv[r].1 * uv[s].0;
                     if det.abs() < 1e-12 {
@@ -71,7 +84,7 @@ pub fn generate_tilings() -> Result<(), Box<dyn std::error::Error>> {
                     }
 
                     // Determine rhombus type and color
-                    let is_adjacent = s - r == 1 || s - r == DIMENSION - 1;
+                    let is_adjacent = s - r == 1 || s - r == dimension - 1;
                     let fill_color = if is_adjacent { fat_color } else { thin_color };
 
                     // Draw filled polygon
