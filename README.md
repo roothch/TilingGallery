@@ -57,6 +57,7 @@ Run the CLI with one of the available subcommands:
 | `--thin-color`      | Color of thin rhombuses (hex code) | `#2EC4B6`    |
 | `--edge-color`      | Color of tile edges (hex code)     | `#6D6875`    |
 | `--output-filename` | Output SVG file name               | `output.svg` |
+
 **example**
 ![penrose tiling](examples/penrose.svg)
 If you set dimension to 4, you can get Ammann Beenker Tiling.
@@ -78,6 +79,7 @@ If you set dimension to 4, you can get Ammann Beenker Tiling.
 | `--width`           | SVG canvas width            | `800`        |
 | `--height`          | SVG canvas height           | `600`        |
 | `--output-filename` | Output SVG file name        | `output.svg` |
+
 **example**
 ![pinwheel tiling](examples/pinwheel.svg)
 ## 📁 Output
