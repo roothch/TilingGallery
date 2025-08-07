@@ -19,9 +19,11 @@ This project is ideal for generating mathematical and artistic patterns based on
 ---
 
 ## 🛠 Installation
+**You can directly download and run the executable from the [Release](https://github.com/roothch/TilingGallery/releases) page.**
+- macOS: tiling-gallery
+- Windows: tiling-gallery.exe
 
-Make sure you have [Rust](https://www.rust-lang.org/tools/install) installed.
-
+If you want to build from the source code, make sure you have [Rust](https://www.rust-lang.org/tools/install) installed.
 Then clone and build:
 
 ```bash
