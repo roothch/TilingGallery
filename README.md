@@ -60,8 +60,10 @@ Run the CLI with one of the available subcommands:
 
 **example**
 ![penrose tiling](examples/penrose.svg)
+
 If you set dimension to 4, you can get Ammann Beenker Tiling.
 ![ammann beenker tiling](examples/ammann-beenker.svg)
+
 ### 🧩 Generate Pinwheel Tiling
 ```
 ./tiling-gallery pinwheel \
@@ -82,6 +84,7 @@ If you set dimension to 4, you can get Ammann Beenker Tiling.
 
 **example**
 ![pinwheel tiling](examples/pinwheel.svg)
+
 ## 📁 Output
 Both subcommands will generate an SVG file with the specified name in the current directory.
 
